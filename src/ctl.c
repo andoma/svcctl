@@ -87,11 +87,11 @@ interactive(const char *name)
   GetLine *gl = new_GetLine(1024, 10000);
   char *line;
 
-  gl_configure_getline(gl, "edit-mode vi", NULL, NULL);
+  gl_configure_getline(gl, "bind ^W backward-delete-word", NULL, NULL);
 
   gl_customize_completion(gl, NULL, completion);
 
-  while((line = gl_get_line(gl, "$ ", NULL, -1)) != NULL) {
+  while((line = gl_get_line(gl, "> ", NULL, -1)) != NULL) {
     char *x = strrchr(line, '\n');
     if(x != NULL)
       *x = 0;
