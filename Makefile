@@ -24,10 +24,9 @@ PROG=${BUILDDIR}/svcctl
 CFLAGS  += -Wall -Wwrite-strings -Wno-deprecated-declarations
 CFLAGS  += -Wmissing-prototypes -std=gnu99
 
-LDFLAGS += -lpthread
+LDFLAGS += -ltecla -lpthread
 
 SRCS =  src/ctl.c \
-	src/linenoise.c \
 
 # Various transformations
 SRCS  += $(SRCS-yes)

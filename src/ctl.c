@@ -7,7 +7,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#include "linenoise.h"
+#include <locale.h>
+
+#include <libtecla.h>
 
 static FILE *fp;
 
@@ -38,17 +40,16 @@ docmd(const char *str)
 }
 
 
-
-
 /**
  *
  */
-static void
-completion(const char *buf, linenoiseCompletions *lc)
+static int
+completion(WordCompletion *cpl, void *data,
+           const char *buf, int word_end)
 {
   char line[4096];
 
-  fprintf(fp, "C%s\n", buf);
+  fprintf(fp, "c%s\n", buf);
 
   while(fgets(line, sizeof(line), fp) != NULL) {
     char *r = strchr(line, '\n');
@@ -56,16 +57,25 @@ completion(const char *buf, linenoiseCompletions *lc)
       exit(2);
     }
     *r = 0;
-    if(isdigit(*line))
-      return;
-    else if(*line == ':')
-      linenoiseAddCompletion(lc, line+1);
-    else
-      printf("???: %s\n", line);
+    if(isdigit(*line)) {
+      return 0;
+    } else if(*line == ':') {
+      int mode;
+      int start_pos;
+      char s1[512];
+      if(sscanf(line + 1, "%d %d %s", &mode, &start_pos, s1) == 3) {
+          if(mode == 1) {
+            cpl_add_completion(cpl, buf, start_pos, word_end, s1, NULL, " ");
+          } else {
+            cpl_add_completion(cpl, buf, start_pos, word_end, "", s1, NULL);
+          }
+      }
+    } else {
+      return 1;
+    }
   }
+  return 1;
 }
-
-
 
 /**
  *
@@ -73,31 +83,23 @@ completion(const char *buf, linenoiseCompletions *lc)
 static void
 interactive(const char *name)
 {
-  char prompt[256];
-  char history[256];
-
-  snprintf(prompt, sizeof(prompt), "%s> ", name);
-  snprintf(history, sizeof(history), "%s/.%s_history", getenv("HOME"), name);
-
-  linenoiseSetCompletionCallback(completion);
-  linenoiseHistoryLoad(history);
-
+  setlocale(LC_CTYPE, "");
+  GetLine *gl = new_GetLine(1024, 10000);
   char *line;
-  while((line = linenoise(prompt)) != NULL) {
+
+  gl_configure_getline(gl, "edit-mode vi", NULL, NULL);
+
+  gl_customize_completion(gl, NULL, completion);
+
+  while((line = gl_get_line(gl, "$ ", NULL, -1)) != NULL) {
+    char *x = strrchr(line, '\n');
+    if(x != NULL)
+      *x = 0;
     if(!strcasecmp(line, "quit") || !strcasecmp(line, "exit"))
       exit(0);
-
-    if (line[0] != '\0' && line[0] != '/') {
-      docmd(line);
-      linenoiseHistoryAdd(line);
-      linenoiseHistorySave(history);
-    } else if (!strncmp(line,"/historylen",11)) {
-      int len = atoi(line+11);
-      linenoiseHistorySetMaxLen(len);
-    } else if (line[0] == '/') {
-      printf("Unreconized command: %s\n", line);
-    }
-    free(line);
+    int r = docmd(line);
+    if(r)
+      printf("%% Command failed with error %d\n", r);
   }
 }
 
